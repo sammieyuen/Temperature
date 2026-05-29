@@ -63,16 +63,26 @@
                 const response = await fetch('https://weather.gov.hk');
                 const data = await response.json();
                 
-                // Extract temperature data (using Headquarter readings by default)
-                const hkoTemp = data.temperature.data.find(station => station.place === 'Hong Kong Observatory');
-                const currentTemp = hkoTemp ? hkoTemp.value : data.temperature.data[0].value;
+                // Safe parsing for temperature array data
+                let currentTemp = '--';
+                if (data.temperature && data.temperature.data) {
+                    const hkoTemp = data.temperature.data.find(station => station.place === 'Hong Kong Observatory');
+                    // Fall back to the first available station if official Observatory record is missing
+                    currentTemp = hkoTemp ? hkoTemp.value : data.temperature.data[0].value;
+                }
                 
-                // Extract humidity data
-                const currentHumidity = data.humidity.data[0].value;
+                // Safe parsing for humidity data
+                let currentHumidity = '--';
+                if (data.humidity && data.humidity.data && data.humidity.data[0]) {
+                    currentHumidity = data.humidity.data[0].value;
+                }
                 
-                // Format update time
-                const updateTime = new Date(data.updateTime);
-                const timeString = updateTime.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
+                // Format update time safely
+                let timeString = 'Unknown';
+                if (data.updateTime) {
+                    const updateTime = new Date(data.updateTime);
+                    timeString = updateTime.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
+                }
 
                 // Inject values into HTML
                 document.getElementById('temperature').innerText = `${currentTemp}°C`;
