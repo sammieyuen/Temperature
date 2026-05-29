@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hong Kong Current Temperature</title>
+    <title>Hong Kong Live Temperature</title>
     <style>
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: #fff;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -15,81 +16,79 @@
             margin: 0;
         }
         .weather-card {
-            background: white;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
             text-align: center;
             width: 300px;
         }
-        .location {
+        h1 {
+            margin: 0 0 10px 0;
             font-size: 24px;
-            color: #333;
-            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        .time {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 20px;
         }
         .temp {
             font-size: 64px;
             font-weight: bold;
-            color: #ff5722;
-            margin: 0;
+            margin: 10px 0;
         }
         .details {
             font-size: 16px;
-            color: #666;
             margin-top: 15px;
-        }
-        .update-time {
-            font-size: 12px;
-            color: #999;
-            margin-top: 20px;
-        }
-        .loading {
-            font-size: 16px;
-            color: #666;
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            padding-top: 15px;
         }
     </style>
 </head>
 <body>
 
     <div class="weather-card">
-        <div class="location">Hong Kong</div>
-        <div id="weather-display">
-            <div class="loading">Loading weather data...</div>
-        </div>
+        <h1>Hong Kong Weather</h1>
+        <div class="time" id="update-time">Loading time...</div>
+        <div class="temp" id="temperature">--°C</div>
+        <div class="details" id="humidity">Humidity: --%</div>
     </div>
 
     <script>
-        // Fetching real-time current weather from HKO Open Data API
-        const apiUrl = 'https://weather.gov.hk';
-
-        async function fetchWeather() {
+        async function fetchHKWeather() {
             try {
-                const response = await fetch(apiUrl);
+                // Official GovHK Data API URL
+                const response = await fetch('https://weather.gov.hk');
                 const data = await response.json();
+                
+                // Extract temperature data (using Headquarter readings by default)
+                const hkoTemp = data.temperature.data.find(station => station.place === 'Hong Kong Observatory');
+                const currentTemp = hkoTemp ? hkoTemp.value : data.temperature.data[0].value;
+                
+                // Extract humidity data
+                const currentHumidity = data.humidity.data[0].value;
+                
+                // Format update time
+                const updateTime = new Date(data.updateTime);
+                const timeString = updateTime.toLocaleString('en-HK', { dateStyle: 'medium', timeStyle: 'short' });
 
-                // Extract relevant data
-                const temp = data.temperature.data[0].value;
-                const humidity = data.humidity.data[0].value;
-                const updateTime = data.updateTime.substring(11, 19); 
-
-                // Update HTML
-                document.getElementById('weather-display').innerHTML = `
-                    <div class="temp">${temp}°C</div>
-                    <div class="details">Humidity: ${humidity}%</div>
-                    <div class="update-time">Last updated: ${updateTime} HKT</div>
-                `;
+                // Inject values into HTML
+                document.getElementById('temperature').innerText = `${currentTemp}°C`;
+                document.getElementById('humidity').innerText = `Humidity: ${currentHumidity}%`;
+                document.getElementById('update-time').innerText = `Last Updated: ${timeString}`;
             } catch (error) {
-                console.error('Error fetching weather:', error);
-                document.getElementById('weather-display').innerHTML = `
-                    <div class="details" style="color: red;">Failed to load temperature.</div>
-                `;
+                console.error('Error fetching weather data:', error);
+                document.getElementById('temperature').innerText = 'Error';
+                document.getElementById('update-time').innerText = 'Failed to load data';
             }
         }
 
-        fetchWeather();
-        // Refresh every 10 minutes (600,000 ms)
-        setInterval(fetchWeather, 600000);
+        // Run function on load
+        fetchHKWeather();
+        // Refresh every 5 minutes
+        setInterval(fetchHKWeather, 300000);
     </script>
-
 </body>
 </html>
