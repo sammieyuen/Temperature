@@ -18,6 +18,7 @@
         .weather-card {
             background: rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
             padding: 30px;
             border-radius: 15px;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
@@ -51,67 +52,81 @@
 
     <div class="weather-card">
         <h1>Hong Kong Weather</h1>
-        <div class="time" id="update-time">Loading time...</div>
+        <div class="time" id="update-time">Loading...</div>
         <div class="temp" id="temperature">--°C</div>
         <div class="details" id="humidity">Humidity: --%</div>
     </div>
 
     <script>
-    function fetchHKWeather() {
-        // Standard XMLHttpRequest supported by all legacy/modern ONELAN engines
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', 'https://weather.gov.hk', true);
-        
-        xhr.onload = function() {
-            if (xhr.status >= 200 && xhr.status < 400) {
-                try {
-                    var data = JSON.parse(xhr.responseText);
-                    
-                    var currentTemp = '--';
-                    if (data.temperature && data.temperature.data && data.temperature.data.length > 0) {
-                        var hkoTemp = data.temperature.data.filter(function(station) {
-                            return station.place === 'Hong Kong Observatory';
-                        })[0];
-                        currentTemp = hkoTemp ? hkoTemp.value : data.temperature.data[0].value;
-                    }
-                    
-                    var currentHumidity = '--';
-                    if (data.humidity && data.humidity.data && data.humidity.data.value) {
-                        currentHumidity = data.humidity.data.value;
-                    }
-                    
-                    var timeString = 'Unknown';
-                    if (data.updateTime) {
-                        var updateTime = new Date(data.updateTime);
-                        timeString = updateTime.toLocaleDateString() + ' ' + updateTime.toLocaleTimeString();
-                    }
+        function fetchHKWeather() {
+            var url = 'https://weather.gov.hk';
+            var xhr = new XMLHttpRequest();
+            
+            xhr.open('GET', url, true);
+            
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            
+                            // 1. Parse temperature array safely
+                            var currentTemp = '--';
+                            if (data && data.temperature && Array.isArray(data.temperature.data)) {
+                                var hko = data.temperature.data.find(function(item) {
+                                    return item.place === 'Hong Kong Observatory';
+                                });
+                                
+                                if (hko && hko.value !== undefined) {
+                                    currentTemp = hko.value;
+                                } else if (data.temperature.data[0] && data.temperature.data[0].value !== undefined) {
+                                    currentTemp = data.temperature.data[0].value;
+                                }
+                            }
+                            
+                            // 2. Parse humidity safely (Fixed array array layout indexing)
+                            var currentHumidity = '--';
+                            if (data && data.humidity && Array.isArray(data.humidity.data) && data.humidity.data[0]) {
+                                currentHumidity = data.humidity.data[0].value || '--';
+                            }
+                            
+                            // 3. Parse timestamp format safely
+                            var timeString = 'Unknown';
+                            if (data && data.updateTime) {
+                                var updateTime = new Date(data.updateTime);
+                                if (!isNaN(updateTime.getTime())) {
+                                    timeString = updateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                }
+                            }
 
-                    document.getElementById('temperature').innerText = currentTemp + '°C';
-                    document.getElementById('humidity').innerText = 'Humidity: ' + currentHumidity + '%';
-                    document.getElementById('update-time').innerText = 'Last Updated: ' + timeString;
-                } catch (e) {
-                    showError();
+                            // Render target displays
+                            document.getElementById('temperature').innerText = currentTemp + '°C';
+                            document.getElementById('humidity').innerText = 'Humidity: ' + currentHumidity + '%';
+                            document.getElementById('update-time').innerText = 'Last Updated: ' + timeString;
+                            
+                        } catch (e) {
+                            showError("Data Error");
+                        }
+                    } else {
+                        showError("HTTP Code " + xhr.status);
+                    }
                 }
-            } else {
-                showError();
-            }
-        };
+            };
 
-        xhr.onerror = function() {
-            showError();
-        };
-        
-        xhr.send();
-    }
+            xhr.onerror = function () {
+                showError("Network / Firewall Block");
+            };
 
-    function showError() {
-        document.getElementById('temperature').innerText = 'Error';
-        document.getElementById('update-time').innerText = 'Failed to load data';
-    }
+            xhr.send();
+        }
 
-    fetchHKWeather();
-    setInterval(fetchHKWeather, 300000); // 5 min interval
-</script>
+        function showError(msg) {
+            document.getElementById('temperature').innerText = 'Error';
+            document.getElementById('update-time').innerText = 'Failed: ' + msg;
+        }
 
+        fetchHKWeather();
+        setInterval(fetchHKWeather, 300000); // Auto update every 5 minutes
+    </script>
 </body>
 </html>
